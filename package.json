@@ -1,0 +1,24 @@
+{
+  "name": "skippy_scanner_bot",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "repository": "https://github.com/harwarl/skippy_scanner_bot.git",
+  "author": "Dokun",
+  "license": "MIT",
+  "scripts": {
+    "dev": "tsx watch index.ts",
+    "build": "tsc",
+    "start": "node ."
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ethers": "^5.7.2",
+    "tsc": "^2.0.4",
+    "typescript": "^5.7.2",
+    "web3": "^4.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "tsx": "^4.19.2"
+  }
+}
