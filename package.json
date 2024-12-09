@@ -11,8 +11,10 @@
     "start": "node ."
   },
   "dependencies": {
+    "abi-decoder": "^2.4.0",
     "dotenv": "^16.4.5",
     "ethers": "^5.7.2",
+    "grammy": "^1.33.0",
     "tsc": "^2.0.4",
     "typescript": "^5.7.2",
     "web3": "^4.15.0"

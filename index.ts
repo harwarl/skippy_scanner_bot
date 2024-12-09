@@ -1,190 +1,66 @@
-import { ethers } from "ethers";
 import {
-  DEAD1,
-  DEAD2,
-  ERC20Contract,
-  EThPrice,
-  setEthPrice,
-  UniswapV2PairContract,
-  WETH,
-  WETHUSDTV2Pair,
-  wssProvider,
-} from "./constants/constant";
-import { match } from "./functions/utils";
+  analyseBotInput,
+  anaylzeAddress,
+  getEthPrice,
+} from "./functions/utils";
+import { Bot, BotConfig, Context } from "grammy";
+import { config } from "./utils/config";
+import { messages } from "./messages/messages";
+import { Message } from "grammy/types";
 
-const anaylzeAddress = async (pairAddress: string): Promise<void> => {
-  // Get the uniswap contract to get the actual token pairAddress
+// const main = async () => {
+//   try {
+//     const address: string = "0xa3ad1aaf0306179f0e6e1ac7566fc60cd24d4289";
+//     const randString: string =
+//       "https://dexscreener.com/ethereum/0xa3ad1aaf0306179f0e6e1ac7566fc60cd24d4289";
+//     getEthPrice();
+//     // const address: string = analyseBotInput(randString);
+//     await anaylzeAddress(address);
+//   } catch (e: any) {
+//     console.log(e.message);
+//   }
+// };
 
-  let token0, token1;
-  try {
-    token0 = await UniswapV2PairContract.attach(pairAddress).token0();
-    token1 = await UniswapV2PairContract.attach(pairAddress).token1();
-  } catch (e: any) {
-    console.log(e.message);
-  }
+// main();
 
-  // Get the actual token Address
-  const token = match(token0, WETH) ? token1 : token0;
+const bot = new Bot(config.botToken!);
 
-  //Get the Token Info
-  const { tokenName, tokenDecimals, tokenSymbol, totalSupply, owner } =
-    await getTokenInfo(token);
+//Commands
+bot.command("start", (ctx: Context) => {
+  ctx.reply(messages.START);
+});
 
-  const formattedTSupply = ethers.utils.formatUnits(totalSupply, tokenDecimals);
-
-  //Get Liquidity Information
-  let reserve0, reserve1;
-
-  [reserve0, reserve1] = await UniswapV2PairContract.attach(
-    pairAddress
-  ).getReserves();
-
-  const liquidity = match(token0, WETH) ? reserve0.mul(2) : reserve1.mul(2);
-
-  const formattedLiquidity =
-    parseFloat(ethers.utils.formatUnits(liquidity, tokenDecimals)) * EThPrice;
-
-  console.log({
-    tokenName,
-    tokenDecimals,
-    tokenSymbol,
-    formattedLiquidity,
-    formattedTSupply,
-  });
-
-  //Get Market Cap of the token
-  const WETHReserve: string = token0 === WETH ? reserve0 : reserve1;
-  const TokenReserve: string = token1 === WETH ? reserve1 : reserve0;
-
-  //Market Cap
-  const marketCap = totalSupply.mul(WETHReserve).div(TokenReserve);
-
-  const formattedMarketCap: number =
-    parseFloat(
-      ethers.utils.formatUnits(
-        marketCap,
-        await ERC20Contract.attach(WETH).decimals()
-      )
-    ) * EThPrice;
-
-  //Renounced
-  const renounced: boolean =
-    match(owner, DEAD1) || match(owner, DEAD2) ? true : false;
-
-  //Get Contract Deployer
-  let honeyPotUrl = `https://api.honeypot.is/v2/IsHoneypot?address=${token}&pair=${pairAddress}&chainId=1`;
-
-  const resJson = await (await fetch(honeyPotUrl)).json();
-  let simulation, buyTax, sellTax, honeyPot, deployer, totalHolders;
-
-  simulation = resJson.simulationSuccess;
-  buyTax = resJson.simulationResult?.buyTax;
-  sellTax = resJson.simulationResult?.sellTax;
-  honeyPot = resJson.honeypotResult?.isHoneypot;
-  totalHolders = resJson.token?.totalHolders;
-
-  const creationTx = await wssProvider.getTransaction(
-    resJson.pair.creationTxHash
-  );
-
-  try {
-    deployer = creationTx.from;
-  } catch (error) {
-    deployer = "";
-  }
-
-
-  
-
-  console.log({
-    tokenName,
-    tokenDecimals,
-    tokenSymbol,
-    formattedLiquidity,
-    formattedTSupply,
-    formattedMarketCap,
-    deployer,
-    renounced,
-    simulation,
-    buyTax,
-    sellTax,
-    honeyPot,
-    totalHolders,
-  });
-};
-
-const getTokenInfo = async (tokenAddress: string) => {
-  const tokenContract = ERC20Contract.attach(tokenAddress);
-  const tokenName = await tokenContract.name();
-  const tokenSymbol = await tokenContract.symbol();
-  const tokenDecimals = await tokenContract.decimals();
-  const totalSupply = await tokenContract.totalSupply();
-  let owner;
-  try {
-    owner = await tokenContract.owner();
-  } catch (e) {
+bot.on("message:text", async (ctx: Context) => {
+  let message: Message;
+  if (ctx?.message) {
+    message = ctx?.message;
     try {
-      owner = await tokenContract.getOwner();
-    } catch (ee) {
-      owner = "";
-    }
-  }
-
-  return {
-    tokenContract,
-    tokenName,
-    tokenDecimals,
-    tokenSymbol,
-    totalSupply,
-    owner,
-  };
-};
-
-const getEthPrice = async () => {
-  let reserve0, reserve1;
-  [reserve0, reserve1] = await UniswapV2PairContract.attach(
-    WETHUSDTV2Pair
-  ).getReserves();
-
-  setEthPrice(parseInt(reserve1.div(reserve0.div(1000000000000)).toString()));
-};
-
-const getHoneyAndTax = async (
-  tokenAddress: string,
-  pairAddress: string
-): Promise<any> => {
-  let honeyPot: any, deployer: any, buyTax: any, sellTax: any;
-
-  const honeyPotUrl = `https://api.honeypot.is/v2/IsHoneypot?address=${tokenAddress}&pair=${pairAddress}&chainId=1`;
-
-  fetch(honeyPotUrl)
-    .then((res) => res.json())
-    .then(async (json) => {
-      buyTax = json.simulationResult?.buyTax;
-      sellTax = json.simulationResult?.sellTax;
-      honeyPot = json.honeypotResult?.IsHoneyPot;
-      const creationTx = await wssProvider.getTransaction(
-        json.pair.creationTxhash
+      const { input: tokenAddress, inputType } = await analyseBotInput(
+        message.text!
       );
+      //Get the token Details
+      let newMessage: Message = await ctx.reply("Getting token details", {
+        reply_to_message_id: message.message_id,
+      });
 
-      try {
-        deployer = creationTx.from;
-      } catch (e) {
-        deployer = "";
-      }
-    });
+      const tokenInfo = await anaylzeAddress(tokenAddress, inputType);
 
-  return { buyTax, sellTax, honeyPot, deployer };
-};
-
-const main = async () => {
-  try {
-    const ranAddress: string = "0xa3ad1aaf0306179f0e6e1ac7566fc60cd24d4289";
-    getEthPrice();
-    await anaylzeAddress(ranAddress);
-  } catch (e) {
-    console.log(e);
+      await ctx.reply(tokenInfo, {
+        reply_to_message_id: message.message_id,
+        parse_mode: "HTML",
+      });
+    } catch (error: any) {
+      // ctx.update.message?.reply_to_message(message.message_id);
+      console.error(error.message);
+      await ctx.reply(messages.ERROR, {
+        reply_to_message_id: message.message_id,
+      });
+    }
+  } else {
+    await ctx.reply(messages.ERROR);
   }
-};
+});
 
-main();
+bot.start();
+
+console.log("Bot is running...");
