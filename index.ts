@@ -41,12 +41,14 @@ bot.on("message:text", async (ctx: Context) => {
       //Get the token Details
       let newMessage: Message = await ctx.reply("Getting token details", {
         reply_to_message_id: message.message_id,
+        parse_mode: "HTML",
       });
 
+      console.log({ newMessage });
       const tokenInfo = await anaylzeAddress(tokenAddress, inputType);
 
       await ctx.reply(tokenInfo, {
-        reply_to_message_id: message.message_id,
+        reply_to_message_id: newMessage.message_id,
         parse_mode: "HTML",
       });
     } catch (error: any) {
